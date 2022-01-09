@@ -98,13 +98,15 @@ class _MyHomePageState extends State<MyHomePage> {
                 Row(
                   // commit msg
                   children: [
-                    Container(
-                      child: Expanded(child: Text(
-                        commit.message,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      )),
-                      padding: EdgeInsets.only(top: 8, bottom: 8),
+                    Expanded(
+                      child: Container(
+                        child: Text(
+                          commit.message,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        padding: EdgeInsets.only(top: 8, bottom: 8),
+                      ),
                     )
                   ],
                 ),
