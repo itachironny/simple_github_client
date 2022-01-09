@@ -2,18 +2,9 @@ import 'package:flutter/material.dart';
 import 'select_directory.dart';
 import 'dart:io';
 
-class ItemContainer extends StatelessWidget {
-  final String text;
-  const ItemContainer({Key? key, required this.text}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context){
-    return Container(
-      height: 50,
-      //color: Colors.amber[colorCodes[index]],
-      child: Center(child: Text('Entry ${this.text}')),
-    );
-  }
+class Commit {
+  final String hash, author, date, message;
+  Commit({required this.hash, required this.author, required this.date, required this.message});
 }
 
 class MyHomePage extends StatefulWidget {
@@ -24,28 +15,12 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class Commit {
-  final String hash, author, date, message;
-  Commit({required this.hash, required this.author, required this.date, required this.message});
-}
-
 class _MyHomePageState extends State<MyHomePage> {
-  final count=2000, nextRange=50;
-  int start=0,end=51;
-  List<int> fullItemList=[];
-  List<String> itemList=[];
-
   String? dir, cmdText, cmdError;
   List<Commit> commitList = []; 
   static final RegExp reg = RegExp(r"commit (\S+)\s+Author: ([^\n^\r]+)\s*Date: ([^\n^\r]+)\s*(\S[^\n^\r]+)");
-
-  _MyHomePageState(){
-    for (var i = 0; i < count; i++) {
-      fullItemList.add(i);
-    }
-    //itemList=
-    fullItemList.sublist(0,51).forEach((int j){itemList.add("$j");});
-  }
+  static const init_msg = "Please select a git repository.\n" + 
+    "Tap the floating floatingActionButton choosing a directory.";
 
   Future<int> getCmdText(String? directory) async {
     var result = await Process.run(
@@ -73,64 +48,46 @@ class _MyHomePageState extends State<MyHomePage> {
     return 0;
   }
 
+  Widget buildCommitWidget(BuildContext context, int index){
+    var commit = commitList[index];
+
+    var commitMessage = Container(
+      child: Text(
+        commit.message,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+      padding: EdgeInsets.only(top: 8, bottom: 8),
+    );
+    var commitHash = Text(commit.hash);
+    var commitAuthor = Text(commit.author);
+    var commitDate = Text(commit.date);
+
+    return Column(
+      children: [
+        Row(children: [Expanded(child: commitHash   )            ]),
+        Row(children: [Expanded(child: commitMessage)            ]),
+        Row(children: [Expanded(child: commitAuthor), commitDate,]),
+        const Divider(),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    Widget body = ListView.separated(
-      padding: const EdgeInsets.all(8),
-      itemCount: nextRange,
-      itemBuilder: (BuildContext context, int index){
-        return ItemContainer(text:itemList[index]);
-      }, // TODO: Add actual widget
-      separatorBuilder: (BuildContext context, int index) => const Divider(),
-    );
-    
+    Widget body = const Center(child: Text(init_msg));
+  
     if((dir??"").length>0){
       if((cmdError??"").length==0){
         body = ListView.builder(
           padding: const EdgeInsets.all(8),
           itemCount: commitList.length,
-          itemBuilder: (BuildContext context, int index){
-            var commit = commitList[index];
-            return Column(
-              children: <Widget>[
-                // Hash
-                Row(children: [Expanded(child: Text(commit.hash)) ]),
-                Row(
-                  // commit msg
-                  children: [
-                    Expanded(
-                      child: Container(
-                        child: Text(
-                          commit.message,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        padding: EdgeInsets.only(top: 8, bottom: 8),
-                      ),
-                    )
-                  ],
-                ),
-                Row(
-                  children: [
-                    // Author
-                    Expanded(child: Text(commit.author)),
-                    // Date
-                    Text(commit.date), 
-                  ],
-                ),
-                const Divider(),
-              ],
-            );
-          },
-          //separatorBuilder: (BuildContext context, int index) => const Divider(),
+          itemBuilder: (BuildContext context, int index) 
+                            => buildCommitWidget(context,index),
         );
       } else {
         body = Center(child: Text(cmdError??"No Command Error"));
       }
-    } else {
-      const init_msg = """Please select a git repository.
-      Tap the floating floatingActionButton choosing a directory.""";
-      body = const Center(child: Text(init_msg));
     }
 
     return Scaffold(
@@ -147,7 +104,7 @@ class _MyHomePageState extends State<MyHomePage> {
             MaterialPageRoute(builder: (context) => SelectDirectoryApp()),
           ).then((String? directory)=>getCmdText(directory));
         },
-        tooltip: 'Add a directory',
+        tooltip: 'Add a git directory',
         child: const Icon(Icons.add),
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
