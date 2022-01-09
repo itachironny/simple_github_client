@@ -24,6 +24,11 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
+class Commit {
+  final String hash, author, date, message;
+  Commit({required this.hash, required this.author, required this.date, required this.message});
+}
+
 class _MyHomePageState extends State<MyHomePage> {
   final count=2000, nextRange=50;
   int start=0,end=51;
@@ -31,6 +36,8 @@ class _MyHomePageState extends State<MyHomePage> {
   List<String> itemList=[];
 
   String? dir, cmdText, cmdError;
+  List<Commit> commitList = []; 
+  static final RegExp reg = RegExp(r"commit (\S+)\s+Author: ([^\n^\r]+)\s*Date: ([^\n^\r]+)\s*(\S[^\n^\r]+)");
 
   _MyHomePageState(){
     for (var i = 0; i < count; i++) {
@@ -49,7 +56,20 @@ class _MyHomePageState extends State<MyHomePage> {
     );
     String ctext = result.stdout;
     String etext = result.stderr;
-    setState((){dir=directory;cmdText=ctext;cmdError=etext;});
+
+    var commits = <Commit>[];
+
+    for(var i in reg.allMatches(ctext)) print(i.groups(<int>[1,2,3,4]));
+    for(var i in reg.allMatches(ctext)) commits.add(Commit(
+      hash: i.group(1)??"",
+      author: i.group(2)??"",
+      date: i.group(3)??"",
+      message: i.group(4)??"",
+    ));
+
+    print(<String>[ctext]);
+    print(<String>[etext]);
+    setState((){dir=directory;cmdText=ctext;cmdError=etext;commitList=commits;});
     return 0;
   }
 
@@ -63,16 +83,53 @@ class _MyHomePageState extends State<MyHomePage> {
       }, // TODO: Add actual widget
       separatorBuilder: (BuildContext context, int index) => const Divider(),
     );
-    if(dir!=null) body=Container(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        children: <Widget>[
-          Text(cmdText??"NULL"),
-          const Divider(),
-          Text(cmdError??"NULL"),
-        ],
-      ),
-    );
+    
+    if((dir??"").length>0){
+      if((cmdError??"").length==0){
+        body = ListView.builder(
+          padding: const EdgeInsets.all(8),
+          itemCount: commitList.length,
+          itemBuilder: (BuildContext context, int index){
+            var commit = commitList[index];
+            return Column(
+              children: <Widget>[
+                // Hash
+                Row(children: [Expanded(child: Text(commit.hash)) ]),
+                Row(
+                  // commit msg
+                  children: [
+                    Container(
+                      child: Expanded(child: Text(
+                        commit.message,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      )),
+                      padding: EdgeInsets.only(top: 8, bottom: 8),
+                    )
+                  ],
+                ),
+                Row(
+                  children: [
+                    // Author
+                    Expanded(child: Text(commit.author)),
+                    // Date
+                    Text(commit.date), 
+                  ],
+                ),
+                const Divider(),
+              ],
+            );
+          },
+          //separatorBuilder: (BuildContext context, int index) => const Divider(),
+        );
+      } else {
+        body = Center(child: Text(cmdError??"No Command Error"));
+      }
+    } else {
+      const init_msg = """Please select a git repository.
+      Tap the floating floatingActionButton choosing a directory.""";
+      body = const Center(child: Text(init_msg));
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -80,7 +137,7 @@ class _MyHomePageState extends State<MyHomePage> {
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
       ),
-      body: body,
+      body: Container(child: body),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push<String>(
