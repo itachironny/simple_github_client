@@ -1,32 +1,14 @@
 import 'package:flutter/material.dart';
 import 'select_directory.dart';
+import 'dart:io';
 
-class ItemContainer extends StatelessWidget {
-  final String text;
-  const ItemContainer({Key? key, required this.text}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context){
-    return Container(
-      height: 50,
-      //color: Colors.amber[colorCodes[index]],
-      child: Center(child: Text('Entry ${this.text}')),
-    );
-  }
+class Commit {
+  final String hash, author, date, message;
+  Commit({required this.hash, required this.author, required this.date, required this.message});
 }
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({Key? key, required this.title}) : super(key: key);
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
   final String title;
 
   @override
@@ -34,55 +16,95 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final count=2000, nextRange=50;
-  int start=0,end=51;
-  List<int> fullItemList=[];
-  List<String> itemList=[];
+  String? dir, cmdText, cmdError;
+  List<Commit> commitList = []; 
+  static final RegExp reg = RegExp(r"commit (\S+)\s+Author: ([^\n^\r]+)\s*Date: ([^\n^\r]+)\s*(\S[^\n^\r]+)");
+  static const init_msg = "Please select a git repository.\n" + 
+    "Tap the floating floatingActionButton choosing a directory.";
 
-  _MyHomePageState(){
-    for (var i = 0; i < count; i++) {
-      fullItemList.add(i);
-    }
-    //itemList=
-    fullItemList.sublist(0,51).forEach((int j){itemList.add("$j");});
+  Future<int> getCmdText(String? directory) async {
+    var result = await Process.run(
+      'git', 
+      ['log'],
+      workingDirectory: directory,
+      runInShell: true,
+    );
+    String ctext = result.stdout;
+    String etext = result.stderr;
+
+    var commits = <Commit>[];
+
+    for(var i in reg.allMatches(ctext)) print(i.groups(<int>[1,2,3,4]));
+    for(var i in reg.allMatches(ctext)) commits.add(Commit(
+      hash: i.group(1)??"",
+      author: i.group(2)??"",
+      date: i.group(3)??"",
+      message: i.group(4)??"",
+    ));
+
+    print(<String>[ctext]);
+    print(<String>[etext]);
+    setState((){dir=directory;cmdText=ctext;cmdError=etext;commitList=commits;});
+    return 0;
   }
 
-  //void getNextRange(){
-  //  var nextStart=start+
-  //}
+  Widget buildCommitWidget(BuildContext context, int index){
+    var commit = commitList[index];
+
+    var commitMessage = Container(
+      child: Text(
+        commit.message,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+      padding: EdgeInsets.only(top: 8, bottom: 8),
+    );
+    var commitHash = Text(commit.hash);
+    var commitAuthor = Text(commit.author);
+    var commitDate = Text(commit.date);
+
+    return Column(
+      children: [
+        Row(children: [Expanded(child: commitHash   )            ]),
+        Row(children: [Expanded(child: commitMessage)            ]),
+        Row(children: [Expanded(child: commitAuthor), commitDate,]),
+        const Divider(),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    Widget body = const Center(child: Text(init_msg));
+  
+    if((dir??"").length>0){
+      if((cmdError??"").length==0){
+        body = ListView.builder(
+          padding: const EdgeInsets.all(8),
+          itemCount: commitList.length,
+          itemBuilder: (BuildContext context, int index) 
+                            => buildCommitWidget(context,index),
+        );
+      } else {
+        body = Center(child: Text(cmdError??"No Command Error"));
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
       ),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(8),
-        itemCount: nextRange,
-        itemBuilder: (BuildContext context, int index){
-          return ItemContainer(text:itemList[index]);
-        }, // TODO: Add actual widget
-        separatorBuilder: (BuildContext context, int index) => const Divider(),
-      ),
+      body: Container(child: body),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push<String>(
             context,
             MaterialPageRoute(builder: (context) => SelectDirectoryApp()),
-          ).then((String? directory){
-          	setState((){itemList[0]=directory??"NULL";});
-          });
+          ).then((String? directory)=>getCmdText(directory));
         },
-        tooltip: 'Add a directory',
+        tooltip: 'Add a git directory',
         child: const Icon(Icons.add),
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
