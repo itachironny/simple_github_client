@@ -16,7 +16,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  String? dir, cmdText, cmdError;
+  String? dir, cmdText;
   List<Commit> commitList = []; 
   static final RegExp reg = RegExp(r"commit (\S+)\s+Author: ([^\n^\r]+)\s*Date: ([^\n^\r]+)\s*(\S[^\n^\r]+)");
   static const init_msg = "Please select a git repository.\n" + 
@@ -70,7 +70,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     print(<String>[ctext]);
     print(<String>[etext]);
-    setState((){dir=directory;cmdText=ctext;cmdError=etext;commitList=commits;});
+    setState((){dir=directory;cmdText=ctext;commitList=commits;});
   }
 
   Widget buildCommitWidget(BuildContext context, int index){
@@ -102,36 +102,49 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     Widget body = const Center(child: Text(init_msg));
   
-    if((dir??"").length>0){
-      if((cmdError??"").length==0){
-        body = ListView.builder(
-          padding: const EdgeInsets.all(8),
-          itemCount: commitList.length,
-          itemBuilder: (BuildContext context, int index) 
-                            => buildCommitWidget(context,index),
-        );
-      } else {
-        body = Center(child: Text(cmdError??"No Command Error"));
-      }
-    }
+    if((dir??"").length>0)
+    body = ListView.builder(
+      padding: const EdgeInsets.all(8),
+      itemCount: commitList.length,
+      itemBuilder: (BuildContext context, int index) 
+                        => buildCommitWidget(context,index),
+    );
+
+    final ButtonStyle style =
+        TextButton.styleFrom(primary: Theme.of(context).colorScheme.onPrimary);
 
     return Scaffold(
       appBar: AppBar(
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
+        actions: <Widget>[
+          ElevatedButton(
+            child: const Text('Choose local git repo'),
+            onPressed: () {
+              Navigator.push<String>(
+                context,
+                MaterialPageRoute(builder: (context) => SelectDirectoryApp()),
+              ).then((String? directory)=>getCmdText(directory, context));
+            },
+          ),
+          ElevatedButton(
+            child: const Text('Clone repo using ssh' ),
+            onPressed: (){},
+          ),
+        ],
       ),
       body: Container(child: body),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push<String>(
-            context,
-            MaterialPageRoute(builder: (context) => SelectDirectoryApp()),
-          ).then((String? directory)=>getCmdText(directory, context));
-        },
-        tooltip: 'Add a git directory',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      //floatingActionButton: FloatingActionButton(
+      //  onPressed: () {
+      //    Navigator.push<String>(
+      //      context,
+      //      MaterialPageRoute(builder: (context) => SelectDirectoryApp()),
+      //    ).then((String? directory)=>getCmdText(directory, context));
+      //  },
+      //  tooltip: 'Add a git directory',
+      //  child: const Icon(Icons.add),
+      //), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
