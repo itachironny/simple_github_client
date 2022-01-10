@@ -22,7 +22,28 @@ class _MyHomePageState extends State<MyHomePage> {
   static const init_msg = "Please select a git repository.\n" + 
     "Tap the floating floatingActionButton choosing a directory.";
 
-  Future<int> getCmdText(String? directory) async {
+  Future<void> _showGitRepoError(String error, BuildContext context) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: true, // user need not tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Error getting git repository details'),
+          content: Text(error),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Ok'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> getCmdText(String? directory, BuildContext context) async {
     var result = await Process.run(
       'git', 
       ['log'],
@@ -31,6 +52,11 @@ class _MyHomePageState extends State<MyHomePage> {
     );
     String ctext = result.stdout;
     String etext = result.stderr;
+
+    if(etext.length>0){
+      await this._showGitRepoError(etext, context);
+      return ;
+    }
 
     var commits = <Commit>[];
 
@@ -45,7 +71,6 @@ class _MyHomePageState extends State<MyHomePage> {
     print(<String>[ctext]);
     print(<String>[etext]);
     setState((){dir=directory;cmdText=ctext;cmdError=etext;commitList=commits;});
-    return 0;
   }
 
   Widget buildCommitWidget(BuildContext context, int index){
@@ -102,7 +127,7 @@ class _MyHomePageState extends State<MyHomePage> {
           Navigator.push<String>(
             context,
             MaterialPageRoute(builder: (context) => SelectDirectoryApp()),
-          ).then((String? directory)=>getCmdText(directory));
+          ).then((String? directory)=>getCmdText(directory, context));
         },
         tooltip: 'Add a git directory',
         child: const Icon(Icons.add),
