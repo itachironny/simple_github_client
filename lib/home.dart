@@ -7,6 +7,86 @@ class Commit {
   Commit({required this.hash, required this.author, required this.date, required this.message});
 }
 
+enum CloneRepoState {
+  not_started, cloning, success, error
+}
+
+class CloneRepo {
+  final String url, directory;
+  CloneRepoState state = CloneRepoState.not_started; 
+  CloneRepo({required this.url, required this.directory});
+  Future<void> start() async {
+    state = CloneRepoState.cloning;
+    var result = await Process.run(
+      'git', 
+      ['clone',url],
+      workingDirectory: directory,
+      runInShell: true,
+    );
+    String ctext = result.stdout;
+    String etext = result.stderr;
+  }
+}
+
+AlertDialog buildCloneAlertDialog(BuildContext context){
+  String? recv_url, recv_dir;
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  return AlertDialog(
+    scrollable: true,
+    title: Text('Enter repo details'),
+    content: Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          children: <Widget>[
+            TextFormField(
+              decoration: InputDecoration(labelText: 'URL'),
+              onSaved: (String? value){recv_url=value;},
+              validator: (String? value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter some text';
+                }
+                return null;
+              },
+            ),
+            TextFormField(
+              decoration: InputDecoration(labelText: 'Clone directory'),
+              onSaved: (String? value){recv_dir=value;},
+              validator: (String? value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter some text';
+                }
+                return null;
+              },
+            ),
+          ],
+        )
+      ),
+    ),
+    actions: <Widget>[
+      ElevatedButton(
+        child: Text('Cancel'),
+        onPressed: (){
+          Navigator.pop(context);
+        },
+      ),
+      ElevatedButton(
+        child: Text('Okay'),
+        onPressed: (){
+          if (_formKey.currentState?.validate() ?? false) {
+            _formKey.currentState?.save();
+            Navigator.pop<CloneRepo>(context, CloneRepo(
+              url: recv_url??"", 
+              directory: recv_dir??""
+            ));
+          }
+        },
+      ),
+    ],
+  );
+}
+
 class MyHomePage extends StatefulWidget {
   const MyHomePage({Key? key, required this.title}) : super(key: key);
   final String title;
@@ -98,6 +178,21 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  Widget buildCloneWidget(BuildContext context){
+    return ElevatedButton(
+      child: const Text('Clone repo using ssh'),
+      onPressed: () async {
+        CloneRepo? tmp_cloner = await showDialog<CloneRepo>(
+          context: context,
+          builder: (BuildContext context)=>buildCloneAlertDialog(context),
+        );
+        if(tmp_cloner == null) return;
+        CloneRepo cloner = tmp_cloner ;
+        print("Repo "+cloner.url+" must be cloned inside "+cloner.directory);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget body = const Center(child: Text(init_msg));
@@ -128,10 +223,7 @@ class _MyHomePageState extends State<MyHomePage> {
               ).then((String? directory)=>getCmdText(directory, context));
             },
           ),
-          ElevatedButton(
-            child: const Text('Clone repo using ssh' ),
-            onPressed: (){},
-          ),
+          buildCloneWidget(context),
         ],
       ),
       body: Container(child: body),
