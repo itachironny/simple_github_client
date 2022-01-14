@@ -11,11 +11,27 @@ enum CloneRepoState {
   not_started, cloning, success, error
 }
 
+class GitRepoUrl {
+  static final RegExp reg = RegExp(r"/([^/]+)\.git");
+  static String? getFolder(String url){
+    var match = reg.firstMatch(url);
+    if(match == null){
+      print("No folder found in git repo url : <>${url}<>");
+      return null;
+    } else {
+      print("Git repo url match is ${match.group(1)}");
+    }
+    return match.group(1);
+  }
+}
+
 class CloneRepo {
   final String url, directory;
+  String ctext = "", etext = "";
   CloneRepoState state = CloneRepoState.not_started; 
   CloneRepo({required this.url, required this.directory});
   Future<void> start() async {
+    print("Starting cloning ${url} inside ${directory}");
     state = CloneRepoState.cloning;
     var result = await Process.run(
       'git', 
@@ -23,8 +39,14 @@ class CloneRepo {
       workingDirectory: directory,
       runInShell: true,
     );
-    String ctext = result.stdout;
-    String etext = result.stderr;
+
+    this.ctext = result.stdout;
+    this.etext = result.stderr;
+
+    this.state = (result.exitCode == 0) ? CloneRepoState.success : CloneRepoState.error;
+
+    print("Cloning done. Exit code : ${result.exitCode}");
+    print([this.ctext,this.etext]);
   }
 }
 
@@ -46,6 +68,10 @@ AlertDialog buildCloneAlertDialog(BuildContext context){
               validator: (String? value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter some text';
+                }
+                var folder = GitRepoUrl.getFolder(value);
+                if (folder == null) {
+                  return "No folder found in ${value}";
                 }
                 return null;
               },
@@ -180,15 +206,27 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Widget buildCloneWidget(BuildContext context){
     return ElevatedButton(
-      child: const Text('Clone repo using ssh'),
+      child: const Text('Clone Passwordless'),
       onPressed: () async {
-        CloneRepo? tmp_cloner = await showDialog<CloneRepo>(
+        CloneRepo? cloner = await showDialog<CloneRepo>(
           context: context,
           builder: (BuildContext context)=>buildCloneAlertDialog(context),
         );
-        if(tmp_cloner == null) return;
-        CloneRepo cloner = tmp_cloner ;
-        print("Repo "+cloner.url+" must be cloned inside "+cloner.directory);
+        if(cloner == null) return;
+        await cloner.start();
+        switch (cloner.state) {
+          case CloneRepoState.success :
+            String fdir = cloner.directory + 
+              (cloner.directory.endsWith("/") ? "" : "/") + 
+              (GitRepoUrl.getFolder(cloner.url) ?? "") ;
+            print("Going to "+fdir);
+            getCmdText(fdir, context);
+            break;
+          case CloneRepoState.error :
+            _showGitRepoError(cloner.etext, context);
+            break;
+          default:
+        }
       },
     );
   }
